@@ -18,6 +18,11 @@ go to ```cpp/proj/ directory``` and run the script ```./buildTF.sh```.
 ### Quick Start
 ```python 
 from HebHTR import *
+import sys
+import io
+
+# Override sys.stdout with utf-8 encoding
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Create new HebHTR object.
 img = HebHTR('example.png')
