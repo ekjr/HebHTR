@@ -107,11 +107,15 @@ class Model:
     def setupCTC(self):
         # BxTxC -> TxBxC
         self.ctcIn3dTBC = tf.transpose(self.rnnOut3d, [1, 0, 2])
-
+    
         # ground truth text as sparse tensor
         self.gtTexts = tf.SparseTensor(
             tf.placeholder(tf.int64, shape=[None, 2]),
             tf.placeholder(tf.int32, [None]), tf.placeholder(tf.int64, [2]))
+    
+        # Compute CTC loss
+        self.loss = tf.reduce_mean(tf.nn.ctc_loss(
+            labels=self.gtTexts, inputs=self.ctcIn3dTBC, sequence_length=self.seqLen))
 
         # Read corpus.txt with proper encoding
         try:
