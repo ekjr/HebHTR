@@ -107,48 +107,53 @@ class Model:
     def setupCTC(self):
         # BxTxC -> TxBxC
         self.ctcIn3dTBC = tf.transpose(self.rnnOut3d, [1, 0, 2])
-    
         # ground truth text as sparse tensor
         self.gtTexts = tf.SparseTensor(
             tf.placeholder(tf.int64, shape=[None, 2]),
             tf.placeholder(tf.int32, [None]), tf.placeholder(tf.int64, [2]))
-    
-        # Compute CTC loss
-        self.loss = tf.reduce_mean(tf.nn.ctc_loss(
-            labels=self.gtTexts, inputs=self.ctcIn3dTBC, sequence_length=self.seqLen))
 
-        # Read corpus.txt with proper encoding
-        try:
-            with open('data/corpus.txt', 'r', encoding='utf-8') as file:
-                corpus = file.read()
-        except UnicodeDecodeError:
-            # Fallback to 'windows-1255' encoding for Hebrew text
-            with open('data/corpus.txt', 'r', encoding='windows-1255') as file:
-                corpus = file.read()
-    
-        # Read wordCharList.txt with appropriate encoding
-        try:
-            with open('model/wordCharList.txt', 'r', encoding='utf-8') as f:
-                wordChars = f.read().splitlines()[0]  # Read the first line
-        except UnicodeDecodeError:
-            # Fallback to 'windows-1255' encoding for Hebrew text
-            with open('model/wordCharList.txt', 'r', encoding='windows-1255') as f:
-                wordChars = f.read().splitlines()[0]  # Read the first line
-    
-        # decoder logic
-        chars = ''.join(self.charList)
-    
+        # calc loss for batch
+        self.seqLen = tf.placeholder(tf.int32, [None])
+        self.loss = tf.reduce_mean(
+            tf.nn.ctc_loss(labels=self.gtTexts, inputs=self.ctcIn3dTBC,
+                           sequence_length=self.seqLen,
+                           ctc_merge_repeated=True))
+
+        # calc loss for each element to compute label probability
+        self.savedCtcInput = tf.placeholder(tf.float32,
+                                            shape=[Model.maxTextLen, None,
+                                                   len(self.charList) + 1])
+        self.lossPerElement = tf.nn.ctc_loss(labels=self.gtTexts,
+                                             inputs=self.savedCtcInput,
+                                             sequence_length=self.seqLen,
+                                             ctc_merge_repeated=True)
+
         # decoder: either best path decoding or beam search decoding
         if self.decoderType == DecoderType.BestPath:
             self.decoder = tf.nn.ctc_greedy_decoder(inputs=self.ctcIn3dTBC,
                                                     sequence_length=self.seqLen)
         elif self.decoderType == DecoderType.WordBeamSearch:
+            # import compiled word beam search operation (see https://github.com/githubharald/CTCWordBeamSearch)
             word_beam_search_module = tf.load_op_library('./TFWordBeamSearch.so')
+
+            # prepare information about language (dictionary, characters in dataset, characters forming words)
+            chars = str().join(self.charList)
+
+            with open('model/wordCharList.txt', "rb") as f:
+                byte = f.read(1)
+                if byte != "":
+                    byte = f.read()
+                    myString = byte.decode("Windows-1255")
+                    wordChars = myString.splitlines()[0]
+
+
+            corpus = open('data/corpus.txt').read()
+
+            # decode using the "Words" mode of word beam search
             self.decoder = word_beam_search_module.word_beam_search(
                 tf.nn.softmax(self.ctcIn3dTBC, axis=2), 50, 'Words', 0.0,
-                corpus.encode('utf-8'), chars.encode('utf-8'),
-                wordChars.encode('utf-8'))
-
+                corpus.encode('utf8'), chars.encode('utf8'),
+                wordChars.encode('utf8'))
 
     def setupTF(self):
         sess = tf.Session()  # TF session
