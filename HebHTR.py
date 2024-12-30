@@ -6,7 +6,7 @@ class HebHTR:
 
     def __init__(self, img_path):
         self.img_path = img_path
-        self.original_img = cv2.imread(img_path)
+        self.original_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
 
     def imgToWord(self, iterations=5, decoder_type='word_beam'):
