@@ -139,15 +139,17 @@ class Model:
             # prepare information about language (dictionary, characters in dataset, characters forming words)
             chars = str().join(self.charList)
 
+            # Open corpus file with utf-8 encoding to avoid UnicodeDecodeError
+            with open('data/corpus.txt', encoding='utf-8') as f:
+                corpus = f.read()
+
+            # load word characters for beam search
             with open('model/wordCharList.txt', "rb") as f:
                 byte = f.read(1)
-                if byte != "":
+                if byte != b"":
                     byte = f.read()
                     myString = byte.decode("Windows-1255")
                     wordChars = myString.splitlines()[0]
-
-
-            corpus = open('data/corpus.txt').read()
 
             # decode using the "Words" mode of word beam search
             self.decoder = word_beam_search_module.word_beam_search(
