@@ -104,46 +104,46 @@ class Model:
             tf.nn.atrous_conv2d(value=concat, filters=kernel, rate=1,
                                 padding='SAME'), axis=[2])
 
-def setupCTC(self):
-    # BxTxC -> TxBxC
-    self.ctcIn3dTBC = tf.transpose(self.rnnOut3d, [1, 0, 2])
+    def setupCTC(self):
+        # BxTxC -> TxBxC
+        self.ctcIn3dTBC = tf.transpose(self.rnnOut3d, [1, 0, 2])
 
-    # ground truth text as sparse tensor
-    self.gtTexts = tf.SparseTensor(
-        tf.placeholder(tf.int64, shape=[None, 2]),
-        tf.placeholder(tf.int32, [None]), tf.placeholder(tf.int64, [2]))
+        # ground truth text as sparse tensor
+        self.gtTexts = tf.SparseTensor(
+            tf.placeholder(tf.int64, shape=[None, 2]),
+            tf.placeholder(tf.int32, [None]), tf.placeholder(tf.int64, [2]))
 
-    # Read corpus.txt with proper encoding
-    try:
-        with open('data/corpus.txt', 'r', encoding='utf-8') as file:
-            corpus = file.read()
-    except UnicodeDecodeError:
-        # Fallback to 'windows-1255' encoding for Hebrew text
-        with open('data/corpus.txt', 'r', encoding='windows-1255') as file:
-            corpus = file.read()
-
-    # Read wordCharList.txt with appropriate encoding
-    try:
-        with open('model/wordCharList.txt', 'r', encoding='utf-8') as f:
-            wordChars = f.read().splitlines()[0]  # Read the first line
-    except UnicodeDecodeError:
-        # Fallback to 'windows-1255' encoding for Hebrew text
-        with open('model/wordCharList.txt', 'r', encoding='windows-1255') as f:
-            wordChars = f.read().splitlines()[0]  # Read the first line
-
-    # decoder logic
-    chars = ''.join(self.charList)
-
-    # decoder: either best path decoding or beam search decoding
-    if self.decoderType == DecoderType.BestPath:
-        self.decoder = tf.nn.ctc_greedy_decoder(inputs=self.ctcIn3dTBC,
-                                                sequence_length=self.seqLen)
-    elif self.decoderType == DecoderType.WordBeamSearch:
-        word_beam_search_module = tf.load_op_library('./TFWordBeamSearch.so')
-        self.decoder = word_beam_search_module.word_beam_search(
-            tf.nn.softmax(self.ctcIn3dTBC, axis=2), 50, 'Words', 0.0,
-            corpus.encode('utf-8'), chars.encode('utf-8'),
-            wordChars.encode('utf-8'))
+        # Read corpus.txt with proper encoding
+        try:
+            with open('data/corpus.txt', 'r', encoding='utf-8') as file:
+                corpus = file.read()
+        except UnicodeDecodeError:
+            # Fallback to 'windows-1255' encoding for Hebrew text
+            with open('data/corpus.txt', 'r', encoding='windows-1255') as file:
+                corpus = file.read()
+    
+        # Read wordCharList.txt with appropriate encoding
+        try:
+            with open('model/wordCharList.txt', 'r', encoding='utf-8') as f:
+                wordChars = f.read().splitlines()[0]  # Read the first line
+        except UnicodeDecodeError:
+            # Fallback to 'windows-1255' encoding for Hebrew text
+            with open('model/wordCharList.txt', 'r', encoding='windows-1255') as f:
+                wordChars = f.read().splitlines()[0]  # Read the first line
+    
+        # decoder logic
+        chars = ''.join(self.charList)
+    
+        # decoder: either best path decoding or beam search decoding
+        if self.decoderType == DecoderType.BestPath:
+            self.decoder = tf.nn.ctc_greedy_decoder(inputs=self.ctcIn3dTBC,
+                                                    sequence_length=self.seqLen)
+        elif self.decoderType == DecoderType.WordBeamSearch:
+            word_beam_search_module = tf.load_op_library('./TFWordBeamSearch.so')
+            self.decoder = word_beam_search_module.word_beam_search(
+                tf.nn.softmax(self.ctcIn3dTBC, axis=2), 50, 'Words', 0.0,
+                corpus.encode('utf-8'), chars.encode('utf-8'),
+                wordChars.encode('utf-8'))
 
 
     def setupTF(self):
